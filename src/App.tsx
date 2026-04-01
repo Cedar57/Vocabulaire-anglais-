@@ -1347,7 +1347,7 @@ function Results({ results, correct, total, sessXP, streak, xp, progress, onHome
         )}
 
         <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-          <button onClick={onRestart} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'700',padding:'14px',borderRadius:'14px',cursor:'pointer',fontSize:'0.95rem'}}>🔄 Recommencer</button>
+          <button onClick={onRestart} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'700',padding:'14px',borderRadius:'14px',cursor:'pointer',fontSize:'0.95rem'}}>⏩️ Continuer</button>
           <button onClick={onHome} style={{width:'100%',background:'#1e293b',border:'1px solid #334155',color:'white',fontWeight:'600',padding:'14px',borderRadius:'14px',cursor:'pointer',fontSize:'0.95rem'}}>🏠 Retour</button>
         </div>
       </div>
