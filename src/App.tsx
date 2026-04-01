@@ -6,11 +6,11 @@ const CHAPTERS = [...new Set(VOCAB.map(w => w.ch))];
 const BOX_DAYS = [0, 0, 1, 3, 7, 14];
 const SESSION_SIZE = 20;
 
-function norm(s) {
+function norm(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,'').trim();
 }
 
-function checkType(input, correct) {
+function checkType(input: string, correct: string) {
   const inp = norm(input);
   if (!inp) return 'empty';
   const opts = correct.split(/[,/]/).map(s => norm(s.trim())).filter(Boolean);
@@ -19,26 +19,26 @@ function checkType(input, correct) {
   return 'wrong';
 }
 
-function isDue(entry) {
+function isDue(entry: any) {
   if (!entry || entry.box === 0) return true;
   const days = BOX_DAYS[Math.min(entry.box, BOX_DAYS.length-1)];
   if (!days) return true;
   return Date.now() >= new Date(entry.lastSeen).getTime() + days * 86400000;
 }
 
-function pickMode(box) {
+function pickMode(box: number) {
   const r = Math.random();
   if (box === 0) return r < 0.5 ? 'flashcard' : r < 0.8 ? 'qcm' : 'type';
   if (box <= 2) return r < 0.25 ? 'flashcard' : r < 0.65 ? 'qcm' : 'type';
   return r < 0.1 ? 'flashcard' : r < 0.5 ? 'qcm' : 'type';
 }
 
-function getQcmOptions(word, pool) {
+function getQcmOptions(word: any, pool: any[]) {
   const wrong = pool.filter(w => w.id !== word.id).sort(() => Math.random()-0.5).slice(0,3).map(w => w.fr);
   return [word.fr, ...wrong].sort(() => Math.random()-0.5);
 }
 
-function buildSession(progress, chapters, missedOnly) {
+function buildSession(progress: any, chapters: any[], missedOnly: boolean) {
   let pool = chapters.length > 0 ? VOCAB.filter(w => chapters.includes(w.ch)) : VOCAB;
   if (missedOnly) pool = pool.filter(w => progress[w.id]?.wrong > 0);
   if (pool.length === 0) return [];
@@ -56,54 +56,54 @@ function buildSession(progress, chapters, missedOnly) {
   return selected.map(w => ({ word: w, mode: pickMode((progress[w.id]||{}).box||0), options: getQcmOptions(w, qcmPool) }));
 }
 
-function xpToLevel(xp) { return Math.floor(xp / 500) + 1; }
+function xpToLevel(xp: number) { return Math.floor(xp / 500) + 1; }
 
 export default function App() {
   const [loaded, setLoaded] = useState(false);
-  const [progress, setProgress] = useState({});
+  const [progress, setProgress] = useState<any>({});
   const [streak, setStreak] = useState(0);
   const [xp, setXp] = useState(0);
   const [lastDate, setLastDate] = useState('');
   const [screen, setScreen] = useState('home');
-  const [selCh, setSelCh] = useState([]);
-  const [session, setSession] = useState([]);
+  const [selCh, setSelCh] = useState<string[]>([]);
+  const [session, setSession] = useState<any[]>([]);
   const [idx, setIdx] = useState(0);
-  const [results, setResults] = useState([]);
+  const [results, setResults] = useState<any[]>([]);
   const [sessXP, setSessXP] = useState(0);
   const [missedMode, setMissedMode] = useState(false);
   const [revealed, setRevealed] = useState(false);
-  const [selOpt, setSelOpt] = useState(null);
+  const [selOpt, setSelOpt] = useState<string | null>(null);
   const [typed, setTyped] = useState('');
-  const [typeRes, setTypeRes] = useState(null);
+  const [typeRes, setTypeRes] = useState<any>(null);
   const [answered, setAnswered] = useState(false);
 
   useEffect(() => {
-    async function load() {
+    function load() {
       try {
-        const r1 = await window.storage.get('vp2'); if (r1) setProgress(JSON.parse(r1.value));
-        const r2 = await window.storage.get('vstreak2'); if (r2) setStreak(parseInt(r2.value)||0);
-        const r3 = await window.storage.get('vxp2'); if (r3) setXp(parseInt(r3.value)||0);
-        const r4 = await window.storage.get('vdate2'); if (r4) setLastDate(r4.value);
+        const r1 = localStorage.getItem('vp2'); if (r1) setProgress(JSON.parse(r1));
+        const r2 = localStorage.getItem('vstreak2'); if (r2) setStreak(parseInt(r2)||0);
+        const r3 = localStorage.getItem('vxp2'); if (r3) setXp(parseInt(r3)||0);
+        const r4 = localStorage.getItem('vdate2'); if (r4) setLastDate(r4);
       } catch {}
       setLoaded(true);
     }
     load();
   }, []);
 
-  async function persist(p, s, x, d) {
+  function persist(p: any, s: number, x: number, d: string) {
     try {
-      await window.storage.set('vp2', JSON.stringify(p));
-      await window.storage.set('vstreak2', String(s));
-      await window.storage.set('vxp2', String(x));
-      await window.storage.set('vdate2', d);
+      localStorage.setItem('vp2', JSON.stringify(p));
+      localStorage.setItem('vstreak2', String(s));
+      localStorage.setItem('vxp2', String(x));
+      localStorage.setItem('vdate2', d);
     } catch {}
   }
 
   const stats = {
     total: VOCAB.length,
     new: VOCAB.filter(w => !progress[w.id]).length,
-    learning: Object.values(progress).filter(p => p.box > 0 && p.box < 5).length,
-    mastered: Object.values(progress).filter(p => p.box >= 5).length,
+    learning: Object.values(progress).filter((p: any) => p.box > 0 && p.box < 5).length,
+    mastered: Object.values(progress).filter((p: any) => p.box >= 5).length,
     due: VOCAB.filter(w => isDue(progress[w.id])).length,
     missed: VOCAB.filter(w => progress[w.id]?.wrong > 0).length,
   };
@@ -123,7 +123,7 @@ export default function App() {
     }
   }
 
-  function updateWord(wordId, box, correct) {
+  function updateWord(wordId: number, box: number, correct: boolean) {
     const cur = progress[wordId] || {box:0, correct:0, wrong:0};
     const np = { ...progress, [wordId]: { box, lastSeen: new Date().toISOString(), correct: cur.correct + (correct?1:0), wrong: cur.wrong + (correct?0:1) }};
     setProgress(np);
@@ -136,7 +136,7 @@ export default function App() {
     setIdx(ni); setRevealed(false); setSelOpt(null); setTyped(''); setTypeRes(null); setAnswered(false);
   }
 
-  function rateFlash(rating) {
+  function rateFlash(rating: string) {
     const w = session[idx].word;
     const cur = progress[w.id] || {box:0};
     const box = rating==='easy' ? Math.min(cur.box+2,5) : rating==='hard' ? Math.min(cur.box+1,5) : 0;
@@ -148,7 +148,7 @@ export default function App() {
     nextCard();
   }
 
-  function answerQCM(opt) {
+  function answerQCM(opt: string) {
     if (answered) return;
     const w = session[idx].word;
     const correct = opt === w.fr;
@@ -197,10 +197,12 @@ export default function App() {
     return <Results results={results} correct={correct} total={results.length} sessXP={sessXP} streak={streak} xp={xp} progress={progress}
       onHome={()=>setScreen('home')} onRestart={()=>startSession(missedMode)} />;
   }
+  
+  return null;
 }
 
 // ─── HOME ────────────────────────────────────────────────────────────────────
-function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed }) {
+function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed }: any) {
   const [showCh, setShowCh] = useState(false);
   const level = xpToLevel(xp);
   const xpIn = xp % 500;
@@ -238,9 +240,9 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed }) {
         {/* Stats grid */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'12px'}}>
           {[['Total',stats.total,'#94a3b8'],['Nouveaux',stats.new,'#60a5fa'],['En cours',stats.learning,'#fbbf24'],['Maîtrisés',stats.mastered,'#34d399']].map(([label,val,color])=>(
-            <div key={label} style={{background:'#1e293b',borderRadius:'12px',padding:'12px 8px',textAlign:'center'}}>
-              <div style={{fontSize:'1.5rem',fontWeight:'800',color}}>{val}</div>
-              <div style={{fontSize:'0.65rem',color:'#64748b',marginTop:'2px'}}>{label}</div>
+            <div key={label as string} style={{background:'#1e293b',borderRadius:'12px',padding:'12px 8px',textAlign:'center'}}>
+              <div style={{fontSize:'1.5rem',fontWeight:'800',color: color as string}}>{val as number}</div>
+              <div style={{fontSize:'0.65rem',color:'#64748b',marginTop:'2px'}}>{label as string}</div>
             </div>
           ))}
         </div>
@@ -269,13 +271,13 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed }) {
           </button>
           {showCh && (
             <div style={{marginTop:'12px',display:'flex',flexDirection:'column',gap:'6px',maxHeight:'260px',overflowY:'auto'}}>
-              {CHAPTERS.map(ch => (
+              {CHAPTERS.map((ch: any) => (
                 <label key={ch} style={{display:'flex',alignItems:'center',gap:'8px',cursor:'pointer'}}>
-                  <div onClick={()=>setSelCh(prev=>prev.includes(ch)?prev.filter(c=>c!==ch):[...prev,ch])}
+                  <div onClick={()=>setSelCh((prev: any)=>prev.includes(ch)?prev.filter((c: any)=>c!==ch):[...prev,ch])}
                     style={{width:'18px',height:'18px',borderRadius:'4px',border:`2px solid ${selCh.includes(ch)?'#6366f1':'#475569'}`,background:selCh.includes(ch)?'#6366f1':'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:'0',cursor:'pointer',transition:'all 0.15s'}}>
                     {selCh.includes(ch)&&<span style={{color:'white',fontSize:'0.6rem',fontWeight:'700'}}>✓</span>}
                   </div>
-                  <span onClick={()=>setSelCh(prev=>prev.includes(ch)?prev.filter(c=>c!==ch):[...prev,ch])} style={{fontSize:'0.8rem',color:'#cbd5e1'}}>{ch}</span>
+                  <span onClick={()=>setSelCh((prev: any)=>prev.includes(ch)?prev.filter((c: any)=>c!==ch):[...prev,ch])} style={{fontSize:'0.8rem',color:'#cbd5e1'}}>{ch}</span>
                 </label>
               ))}
             </div>
@@ -284,13 +286,13 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed }) {
 
         {/* Buttons */}
         <button onClick={onStart} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'700',padding:'16px',borderRadius:'16px',fontSize:'1rem',cursor:'pointer',marginBottom:'10px',transition:'opacity 0.15s'}}
-          onMouseEnter={e=>e.target.style.opacity='0.9'} onMouseLeave={e=>e.target.style.opacity='1'}>
+          onMouseEnter={(e: any)=>e.target.style.opacity='0.9'} onMouseLeave={(e: any)=>e.target.style.opacity='1'}>
           🚀 Démarrer une session
           <div style={{fontSize:'0.8rem',fontWeight:'400',opacity:'0.8',marginTop:'2px'}}>{stats.due} mots à réviser</div>
         </button>
         {stats.missed > 0 && (
           <button onClick={onMissed} style={{width:'100%',background:'rgba(127,29,29,0.6)',border:'1px solid rgba(239,68,68,0.3)',color:'#fca5a5',fontWeight:'600',padding:'12px',borderRadius:'14px',fontSize:'0.9rem',cursor:'pointer',transition:'background 0.15s'}}
-            onMouseEnter={e=>e.target.style.background='rgba(153,27,27,0.7)'} onMouseLeave={e=>e.target.style.background='rgba(127,29,29,0.6)'}>
+            onMouseEnter={(e: any)=>e.target.style.background='rgba(153,27,27,0.7)'} onMouseLeave={(e: any)=>e.target.style.background='rgba(127,29,29,0.6)'}>
             💪 Réviser les mots ratés ({stats.missed})
           </button>
         )}
@@ -300,9 +302,9 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed }) {
 }
 
 // ─── QUIZ ─────────────────────────────────────────────────────────────────────
-function Quiz({ item, idx, total, sessXP, revealed, onReveal, onRate, selOpt, answered, onQCM, typed, setTyped, typeRes, onType, onNext, onQuit }) {
+function Quiz({ item, idx, total, sessXP, revealed, onReveal, onRate, selOpt, answered, onQCM, typed, setTyped, typeRes, onType, onNext, onQuit }: any) {
   const { word, mode, options } = item;
-  const modeLabel = {flashcard:'🃏 Flashcard', qcm:'🎯 QCM', type:'✍️ Écriture'}[mode];
+  const modeLabel: any = {flashcard:'🃏 Flashcard', qcm:'🎯 QCM', type:'✍️ Écriture'}[mode as string];
   const pct = ((idx+1)/total)*100;
 
   return (
@@ -338,7 +340,7 @@ function Quiz({ item, idx, total, sessXP, revealed, onReveal, onRate, selOpt, an
   );
 }
 
-function FlashCard({ word, revealed, onReveal, onRate }) {
+function FlashCard({ word, revealed, onReveal, onRate }: any) {
   return (
     <div>
       <div onClick={!revealed?onReveal:undefined}
@@ -354,7 +356,7 @@ function FlashCard({ word, revealed, onReveal, onRate }) {
             ['✓ Facile','easy','rgba(6,78,59,0.5)','#6ee7b7','rgba(4,120,87,0.7)']].map(([label,rating,bg,color,hbg])=>(
             <button key={rating} onClick={()=>onRate(rating)}
               style={{background:bg,border:`1px solid ${color}30`,color,fontWeight:'600',padding:'12px 8px',borderRadius:'12px',cursor:'pointer',fontSize:'0.85rem',transition:'background 0.15s'}}
-              onMouseEnter={e=>e.target.style.background=hbg} onMouseLeave={e=>e.target.style.background=bg}>{label}</button>
+              onMouseEnter={(e: any)=>e.target.style.background=hbg} onMouseLeave={(e: any)=>e.target.style.background=bg}>{label}</button>
           ))}
         </div>
       )}
@@ -362,8 +364,8 @@ function FlashCard({ word, revealed, onReveal, onRate }) {
   );
 }
 
-function QCM({ word, options, selOpt, answered, onAnswer, onNext }) {
-  function style(opt) {
+function QCM({ word, options, selOpt, answered, onAnswer, onNext }: any) {
+  function style(opt: string) {
     if (!answered) return {background:'#1e293b',border:'1px solid #334155',color:'white',cursor:'pointer'};
     if (opt===word.fr) return {background:'rgba(6,78,59,0.5)',border:'2px solid #10b981',color:'#6ee7b7',cursor:'default'};
     if (opt===selOpt) return {background:'rgba(127,29,29,0.5)',border:'2px solid #ef4444',color:'#fca5a5',cursor:'default'};
@@ -372,7 +374,7 @@ function QCM({ word, options, selOpt, answered, onAnswer, onNext }) {
   return (
     <div>
       <div style={{display:'flex',flexDirection:'column',gap:'10px',marginBottom:'16px'}}>
-        {options.map((opt,i)=>(
+        {options.map((opt: any,i: number)=>(
           <button key={i} onClick={()=>onAnswer(opt)} style={{...style(opt),textAlign:'left',padding:'14px 16px',borderRadius:'12px',fontSize:'0.875rem',width:'100%',transition:'all 0.15s'}}>
             {opt}
           </button>
@@ -383,11 +385,11 @@ function QCM({ word, options, selOpt, answered, onAnswer, onNext }) {
   );
 }
 
-function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onNext }) {
-  const ref = useRef(null);
+function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onNext }: any) {
+  const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!answered && ref.current) ref.current.focus(); }, [answered]);
 
-  const resStyle = {exact:{color:'#6ee7b7',msg:'✓ Parfait !',showAns:false},close:{color:'#fcd34d',msg:'~ Presque !',showAns:true},wrong:{color:'#fca5a5',msg:'✗ Raté.',showAns:true}};
+  const resStyle: any = {exact:{color:'#6ee7b7',msg:'✓ Parfait !',showAns:false},close:{color:'#fcd34d',msg:'~ Presque !',showAns:true},wrong:{color:'#fca5a5',msg:'✗ Raté.',showAns:true}};
   const r = typeRes ? resStyle[typeRes] : null;
 
   return (
@@ -411,10 +413,10 @@ function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onNext }) {
 }
 
 // ─── RESULTS ──────────────────────────────────────────────────────────────────
-function Results({ results, correct, total, sessXP, streak, xp, progress, onHome, onRestart }) {
+function Results({ results, correct, total, sessXP, streak, xp, progress, onHome, onRestart }: any) {
   const pct = total > 0 ? Math.round((correct/total)*100) : 0;
   const emoji = pct>=80?'🎉':pct>=50?'💪':'📚';
-  const missed = results.filter(r=>!r.correct).map(r=>VOCAB.find(w=>w.id===r.wordId)).filter(Boolean);
+  const missed = results.filter((r: any)=>!r.correct).map((r: any)=>VOCAB.find(w=>w.id===r.wordId)).filter(Boolean);
 
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'white',padding:'16px',fontFamily:'system-ui,sans-serif'}}>
@@ -439,7 +441,7 @@ function Results({ results, correct, total, sessXP, streak, xp, progress, onHome
           <div style={{background:'#1e293b',borderRadius:'12px',padding:'14px',marginBottom:'16px'}}>
             <div style={{fontSize:'0.8rem',fontWeight:'600',color:'#f87171',marginBottom:'10px'}}>❌ Mots ratés ({missed.length})</div>
             <div style={{display:'flex',flexDirection:'column',gap:'6px',maxHeight:'180px',overflowY:'auto'}}>
-              {missed.map(w=>(
+              {missed.map((w: any)=>(
                 <div key={w.id} style={{display:'flex',justifyContent:'space-between',fontSize:'0.82rem',padding:'4px 0',borderBottom:'1px solid #334155'}}>
                   <span style={{fontWeight:'600'}}>{w.en}</span>
                   <span style={{color:'#64748b'}}>{w.fr}</span>
