@@ -755,14 +755,6 @@ function norm(s: string) {
   return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\s]/g,'').trim();
 }
 
-const searchLegal = (term: string, site: 'actu' | 'legi') => {
-  const query = encodeURIComponent(term);
-  const url = site === 'actu' 
-    ? `https://www.actu-juridique.fr/?s=${query}`
-    : `https://www.legifrance.gouv.fr/search/all?tab_selection=all&searchField=ALL&query=${query}`;
-  window.open(url, '_blank');
-};
-
 function checkType(input: string, correct: string) {
   const inp = norm(input);
   if (!inp) return 'empty';
@@ -811,24 +803,17 @@ function buildSession(progress: any, chapters: any[], missedOnly: boolean) {
 
 function xpToLevel(xp: number) { return Math.floor(xp / 500) + 1; }
 
-// --- COMPOSANTS INTERFACE ---
-
-function LegalButtons({ term, tip }: { term: string, tip?: string }) {
+// --- COMPOSANT ASTUCE ---
+function TipDisplay({ tip }: { tip?: string }) {
+  if (!tip) return null;
   return (
-    <div style={{marginTop: '20px', padding: '15px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px'}}>
-      {tip && (
-        <div style={{marginBottom: '12px', fontSize: '0.85rem', color: '#fcd34d', fontStyle: 'italic'}}>
-          💡 Astuce : {tip}
-        </div>
-      )}
-      <div style={{display:'flex', gap:'10px', justifyContent:'center'}}>
-        <button onClick={() => searchLegal(term, 'actu')} style={{background:'none', border:'1px solid #475569', color:'#94a3b8', fontSize:'0.7rem', padding:'6px 10px', borderRadius:'8px', cursor:'pointer'}}>🔎 Actu-Juridique</button>
-        <button onClick={() => searchLegal(term, 'legi')} style={{background:'none', border:'1px solid #475569', color:'#94a3b8', fontSize:'0.7rem', padding:'6px 10px', borderRadius:'8px', cursor:'pointer'}}>📜 Légifrance</button>
-      </div>
+    <div style={{marginTop: '16px', padding: '12px', background: 'rgba(252,211,77,0.1)', border: '1px solid rgba(252,211,77,0.3)', borderRadius: '8px', fontSize: '0.85rem', color: '#fcd34d', fontStyle: 'italic', textAlign: 'center'}}>
+      💡 Astuce : {tip}
     </div>
   );
 }
 
+// --- APP PRINCIPALE ---
 export default function App() {
   const [loaded, setLoaded] = useState(false);
   const [progress, setProgress] = useState<any>({});
@@ -903,7 +888,7 @@ export default function App() {
 
   function updateWord(wordId: number, box: number, correct: boolean) {
     const cur = progress[wordId] || {box:0, correct:0, wrong:0};
-    const nouveauxRates = correct ? 0 : cur.wrong + 1;
+    const nouveauxRates = correct ? 0 : cur.wrong + 1; // Le bug des mots ratés est bien corrigé ici
     const np = { ...progress, [wordId]: { box, lastSeen: new Date().toISOString(), correct: cur.correct + (correct?1:0), wrong: nouveauxRates }};
     setProgress(np);
     return np;
@@ -952,15 +937,15 @@ export default function App() {
   return null;
 }
 
-// --- SOUS-COMPOSANTS ---
+// ─── SOUS-COMPOSANTS ─────────────────────────────────────────────────────────
 
 function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }: any) {
   const [showCh, setShowCh] = useState(false);
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
-    // Calcul du compte à rebours vers le Jeudi 8 avril à 13h00
-    const examDate = new Date("2026-04-08T13:00:00").getTime();
+    // Compte à rebours vers le Jeudi 8 avril 2026 à 13h00
+    const examDate = new Date("2026-04-09T13:00:00").getTime();
     const timer = setInterval(() => {
       const now = new Date().getTime();
       const diff = examDate - now;
@@ -983,13 +968,11 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
           <div style={{fontSize:'2rem',fontWeight:'800',color:'#818cf8',letterSpacing:'-0.5px'}}>⚖️ Legal Vocab</div>
           <div style={{color:'#64748b',fontSize:'0.85rem',marginTop:'4px'}}>Anglais du droit des affaires • {stats.total} mots</div>
           
-          {/* Compte à rebours */}
           <div style={{marginTop:'12px', background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)', color:'#fca5a5', padding:'8px 16px', borderRadius:'20px', display:'inline-block', fontWeight:'600', fontSize:'0.9rem'}}>
             {timeLeft}
           </div>
         </div>
 
-        {/* Level card */}
         <div style={{background:'#1e293b',borderRadius:'16px',padding:'16px',marginBottom:'12px'}}>
           <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:'10px'}}>
             <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
@@ -1011,7 +994,6 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
           <div style={{fontSize:'0.7rem',color:'#475569',marginTop:'4px'}}>{xpIn}/500 XP → niveau {level+1}</div>
         </div>
 
-        {/* Stats grid */}
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px',marginBottom:'12px'}}>
           {[['Total',stats.total,'#94a3b8'],['Nouveaux',stats.new,'#60a5fa'],['En cours',stats.learning,'#fbbf24'],['Maîtrisés',stats.mastered,'#34d399']].map(([label,val,color])=>(
             <div key={label as string} style={{background:'#1e293b',borderRadius:'12px',padding:'12px 8px',textAlign:'center'}}>
@@ -1021,7 +1003,6 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
           ))}
         </div>
 
-        {/* Progress bar */}
         <div style={{background:'#1e293b',borderRadius:'12px',padding:'12px',marginBottom:'12px'}}>
           <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.75rem',color:'#64748b',marginBottom:'6px'}}>
             <span>Progression</span><span>{Math.round((stats.mastered/stats.total)*100)}%</span>
@@ -1030,14 +1011,8 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
             <div style={{background:'#10b981',width:`${(stats.mastered/stats.total)*100}%`}} />
             <div style={{background:'#f59e0b',width:`${(stats.learning/stats.total)*100}%`}} />
           </div>
-          <div style={{display:'flex',gap:'12px',marginTop:'6px',fontSize:'0.7rem',color:'#64748b'}}>
-            {[['#10b981','Maîtrisé'],['#f59e0b','En cours'],['#334155','Nouveau']].map(([c,l])=>(
-              <span key={l} style={{display:'flex',alignItems:'center',gap:'4px'}}><span style={{width:'8px',height:'8px',borderRadius:'50%',background:c,display:'inline-block'}} />{l}</span>
-            ))}
-          </div>
         </div>
 
-        {/* Chapter selector */}
         <div style={{background:'#1e293b',borderRadius:'12px',padding:'12px',marginBottom:'16px'}}>
           <button onClick={()=>setShowCh((v:boolean)=>!v)} style={{width:'100%',background:'none',border:'none',color:'white',display:'flex',justifyContent:'space-between',alignItems:'center',cursor:'pointer',padding:'0',fontSize:'0.875rem',fontWeight:'500'}}>
             <span>🗂 Chapitres {selCh.length>0?`(${selCh.length} sélectionnés)`:'(tous)'}</span>
@@ -1058,7 +1033,6 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
           )}
         </div>
 
-        {/* Buttons */}
         <button onClick={onStart} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'700',padding:'16px',borderRadius:'16px',fontSize:'1rem',cursor:'pointer',marginBottom:'10px',transition:'opacity 0.15s'}}
           onMouseEnter={(e: any)=>e.target.style.opacity='0.9'} onMouseLeave={(e: any)=>e.target.style.opacity='1'}>
           🚀 Démarrer une session
@@ -1071,7 +1045,6 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
           </button>
         )}
 
-        {/* Bouton Reset */}
         <div style={{textAlign:'center', marginTop:'30px'}}>
           <button onClick={onReset} style={{background:'none', border:'none', color:'#475569', fontSize:'0.75rem', textDecoration:'underline', cursor:'pointer'}}>
             Réinitialiser ma progression
@@ -1082,7 +1055,6 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
   );
 }
 
-// ─── QUIZ COMPONENT ────────────────────────────────────────────────────────────
 function Quiz({ item, idx, total, sessXP, revealed, onReveal, onRate, selOpt, answered, onQCM, typed, setTyped, typeRes, onType, onNext, onQuit }: any) {
   const { word, mode, options } = item;
   const modeLabel: any = {flashcard:'🃏 Flashcard', qcm:'🎯 QCM', type:'✍️ Écriture'}[mode as string];
@@ -1091,13 +1063,11 @@ function Quiz({ item, idx, total, sessXP, revealed, onReveal, onRate, selOpt, an
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'white',padding:'16px',fontFamily:'system-ui,sans-serif',display:'flex',flexDirection:'column'}}>
       <div style={{maxWidth:'480px',margin:'0 auto',width:'100%',flex:1,display:'flex',flexDirection:'column'}}>
-        {/* Top bar */}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
           <button onClick={onQuit} style={{background:'none',border:'none',color:'#64748b',cursor:'pointer',fontSize:'0.85rem',padding:'4px'}}>✕ Quitter</button>
           <span style={{background:'rgba(99,102,241,0.15)',border:'1px solid rgba(99,102,241,0.3)',color:'#a5b4fc',borderRadius:'20px',padding:'4px 12px',fontSize:'0.8rem',fontWeight:'500'}}>{modeLabel}</span>
           <span style={{color:'#fbbf24',fontWeight:'700',fontSize:'0.9rem'}}>⚡ {sessXP} XP</span>
         </div>
-        {/* Progress */}
         <div style={{marginBottom:'8px'}}>
           <div style={{display:'flex',justifyContent:'space-between',fontSize:'0.72rem',color:'#64748b',marginBottom:'4px'}}>
             <span>{idx+1} / {total}</span><span>{Math.round(pct)}%</span>
@@ -1106,13 +1076,11 @@ function Quiz({ item, idx, total, sessXP, revealed, onReveal, onRate, selOpt, an
             <div style={{height:'100%',background:'linear-gradient(90deg,#6366f1,#818cf8)',width:`${pct}%`,transition:'width 0.3s',borderRadius:'4px'}} />
           </div>
         </div>
-        {/* Chapter */}
         <div style={{textAlign:'center',fontSize:'0.72rem',color:'#475569',marginBottom:'12px'}}>{word.ch}</div>
-        {/* Word */}
         <div style={{background:'linear-gradient(135deg,#1e293b,#0f1f35)',border:'1px solid #334155',borderRadius:'20px',padding:'32px 24px',textAlign:'center',marginBottom:'16px'}}>
           <div style={{fontSize:'1.8rem',fontWeight:'800',letterSpacing:'-0.5px'}}>{word.en}</div>
         </div>
-        {/* Mode */}
+        
         {mode==='flashcard' && <FlashCard word={word} revealed={revealed} onReveal={onReveal} onRate={onRate} />}
         {mode==='qcm' && <QCM word={word} options={options} selOpt={selOpt} answered={answered} onAnswer={onQCM} onNext={onNext} />}
         {mode==='type' && <Type word={word} typed={typed} setTyped={setTyped} typeRes={typeRes} answered={answered} onSubmit={onType} onNext={onNext} />}
@@ -1141,7 +1109,7 @@ function FlashCard({ word, revealed, onReveal, onRate }: any) {
                 onMouseEnter={(e: any)=>e.target.style.background=hbg} onMouseLeave={(e: any)=>e.target.style.background=bg}>{label}</button>
             ))}
           </div>
-          <LegalButtons term={word.fr} tip={word.tip} />
+          <TipDisplay tip={word.tip} />
         </>
       )}
     </div>
@@ -1166,7 +1134,7 @@ function QCM({ word, options, selOpt, answered, onAnswer, onNext }: any) {
       </div>
       {answered && (
         <>
-          <LegalButtons term={word.fr} tip={word.tip} />
+          <TipDisplay tip={word.tip} />
           <button onClick={onNext} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:'pointer',fontSize:'0.9rem',marginTop:'15px'}}>Suivant →</button>
         </>
       )}
@@ -1191,7 +1159,7 @@ function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onNext }: an
         <div style={{textAlign:'center',marginBottom:'12px',color:r.color}}>
           <div style={{fontWeight:'600',fontSize:'1rem'}}>{r.msg}</div>
           {r.showAns && <div style={{fontSize:'1.1rem',fontWeight:'700',marginTop:'4px'}}>{word.fr}</div>}
-          <LegalButtons term={word.fr} tip={word.tip} />
+          <TipDisplay tip={word.tip} />
         </div>
       )}
       {!answered
@@ -1202,7 +1170,6 @@ function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onNext }: an
   );
 }
 
-// ─── RESULTS ──────────────────────────────────────────────────────────────────
 function Results({ results, correct, total, sessXP, streak, xp, progress, onHome, onRestart }: any) {
   const pct = total > 0 ? Math.round((correct/total)*100) : 0;
   const emoji = pct>=80?'🎉':pct>=50?'💪':'📚';
