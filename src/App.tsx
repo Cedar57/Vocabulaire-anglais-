@@ -125,7 +125,19 @@ export default function App() {
 
   function updateWord(wordId: number, box: number, correct: boolean) {
     const cur = progress[wordId] || {box:0, correct:0, wrong:0};
-    const np = { ...progress, [wordId]: { box, lastSeen: new Date().toISOString(), correct: cur.correct + (correct?1:0), wrong: cur.wrong + (correct?0:1) }};
+    
+    // La magie est ici : si c'est juste, on remet les erreurs à 0. Sinon on ajoute 1.
+    const nouveauxRates = correct ? 0 : cur.wrong + 1;
+    
+    const np = { 
+      ...progress, 
+      [wordId]: { 
+        box, 
+        lastSeen: new Date().toISOString(), 
+        correct: cur.correct + (correct ? 1 : 0), 
+        wrong: nouveauxRates 
+      }
+    };
     setProgress(np);
     return np;
   }
