@@ -813,6 +813,53 @@ function TipDisplay({ tip }: { tip?: string }) {
   );
 }
 
+// --- COMPOSANT EASTER EGG ---
+function RandomEasterEgg({ idx }: { idx: number }) {
+  const [egg, setEgg] = useState<{top: number, left: number, rot: number} | null>(null);
+
+  useEffect(() => {
+    const count = parseInt(localStorage.getItem('egg_count') || '0');
+    if (count >= 2) return;
+
+    // 1% de chance d'apparition
+    if (Math.random() < 0.01) {
+      localStorage.setItem('egg_count', (count + 1).toString());
+      const top = 15 + Math.random() * 50;  
+      const left = 10 + Math.random() * 50; 
+      const rot = -15 + Math.random() * 30; 
+      setEgg({ top, left, rot });
+
+      const timer = setTimeout(() => setEgg(null), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [idx]);
+
+  if (!egg) return null;
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: `${egg.top}%`,
+      left: `${egg.left}%`,
+      transform: `rotate(${egg.rot}deg)`,
+      zIndex: 9999,
+      pointerEvents: 'none',
+      background: '#1e293b',
+      padding: '10px',
+      borderRadius: '16px',
+      border: '3px solid #fcd34d',
+      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+      textAlign: 'center',
+      animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+    }}>
+      <img src="/juriste-legendaire.png" alt="Surprise" style={{ width: '150px', borderRadius: '8px', objectFit: 'cover' }} />
+      <div style={{ fontSize: '0.9rem', color: '#fcd34d', fontWeight: 'bold', marginTop: '8px' }}>
+        Ne lâche rien ! ⚖️
+      </div>
+    </div>
+  );
+}
+
 // --- APP PRINCIPALE ---
 export default function App() {
   const [loaded, setLoaded] = useState(false);
@@ -888,7 +935,7 @@ export default function App() {
 
   function updateWord(wordId: number, box: number, correct: boolean) {
     const cur = progress[wordId] || {box:0, correct:0, wrong:0};
-    const nouveauxRates = correct ? 0 : cur.wrong + 1; // Le bug des mots ratés est bien corrigé ici
+    const nouveauxRates = correct ? 0 : cur.wrong + 1;
     const np = { ...progress, [wordId]: { box, lastSeen: new Date().toISOString(), correct: cur.correct + (correct?1:0), wrong: nouveauxRates }};
     setProgress(np);
     return np;
@@ -900,37 +947,17 @@ export default function App() {
   
   if (screen==='quiz') {
     const item = session[idx];
-    return <Quiz item={item} idx={idx} total={session.length} sessXP={sessXP}
-      revealed={revealed} onReveal={()=>setRevealed(true)} onRate={(r:string) => {
-        const w = item.word;
-        const cur = progress[w.id] || {box:0};
-        const box = r==='easy' ? Math.min(cur.box+2,5) : r==='hard' ? Math.min(cur.box+1,5) : 0;
-        const earned = r==='easy'?10:r==='hard'?5:0;
-        const np = updateWord(w.id, box, r!=='wrong');
-        const nx = xp + earned; setXp(nx); setSessXP(s => s+earned);
-        setResults(res => [...res, {wordId:w.id, correct:r!=='wrong', earned}]);
-        persist(np, streak, nx, lastDate);
-        const ni = idx + 1; if (ni >= session.length) setScreen('results'); else { setIdx(ni); setRevealed(false); setSelOpt(null); setTyped(''); setTypeRes(null); setAnswered(false); }
-      }}
-      selOpt={selOpt} answered={answered} onQCM={(opt:string) => {
-        if (answered) return;
-        const w = item.word; const correct = opt === w.fr;
-        const cur = progress[w.id] || {box:0}; const box = correct ? Math.min(cur.box+1,5) : 0;
-        const earned = correct ? 15 : 0; const np = updateWord(w.id, box, correct);
-        const nx = xp+earned; setXp(nx); setSessXP(s => s+earned);
-        setSelOpt(opt); setAnswered(true); setResults(res => [...res, {wordId:w.id, correct, earned}]); persist(np, streak, nx, lastDate);
-      }}
-      typed={typed} setTyped={setTyped} typeRes={typeRes} onType={() => {
-        if (answered || !typed.trim()) return;
-        const w = item.word; const res = checkType(typed, w.fr);
-        const correct = res==='exact'||res==='close';
-        const cur = progress[w.id] || {box:0}; const box = res==='exact' ? Math.min(cur.box+1,5) : res==='close' ? cur.box : 0;
-        const earned = res==='exact'?20:res==='close'?10:0;
-        const np = updateWord(w.id, box, correct); const nx = xp+earned; setXp(nx); setSessXP(s => s+earned);
-        setTypeRes(res); setAnswered(true); setResults(r => [...r, {wordId:w.id, correct, earned}]); persist(np, streak, nx, lastDate);
-      }}
-      onNext={() => { const ni = idx + 1; if (ni >= session.length) setScreen('results'); else { setIdx(ni); setRevealed(false); setSelOpt(null); setTyped(''); setTypeRes(null); setAnswered(false); } }} 
-      onQuit={()=>setScreen('home')} />;
+    return <Quiz 
+      item={item} idx={idx} total={session.length} sessXP={sessXP}
+      progress={progress} setProgress={setProgress} xp={xp} setXp={setXp} setSessXP={setSessXP}
+      streak={streak} lastDate={lastDate} persist={persist} updateWord={updateWord}
+      setResults={setResults} setScreen={setScreen} setIdx={setIdx}
+      revealed={revealed} setRevealed={setRevealed}
+      selOpt={selOpt} setSelOpt={setSelOpt}
+      answered={answered} setAnswered={setAnswered}
+      typed={typed} setTyped={setTyped}
+      typeRes={typeRes} setTypeRes={setTypeRes}
+    />;
   }
 
   if (screen==='results') return <Results results={results} correct={results.filter(r=>r.correct).length} total={results.length} sessXP={sessXP} streak={streak} xp={xp} progress={progress} onHome={()=>setScreen('home')} onRestart={()=>startSession(missedMode)} />;
@@ -944,7 +971,6 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
-    // Compte à rebours vers le Jeudi 8 avril 2026 à 13h00
     const examDate = new Date("2026-04-09T13:00:00").getTime();
     const timer = setInterval(() => {
       const now = new Date().getTime();
@@ -1055,16 +1081,94 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
   );
 }
 
-function Quiz({ item, idx, total, sessXP, revealed, onReveal, onRate, selOpt, answered, onQCM, typed, setTyped, typeRes, onType, onNext, onQuit }: any) {
+function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setSessXP, streak, lastDate, persist, updateWord, setResults, setScreen, setIdx, revealed, setRevealed, selOpt, setSelOpt, answered, setAnswered, typed, setTyped, typeRes, setTypeRes }: any) {
   const { word, mode, options } = item;
   const modeLabel: any = {flashcard:'🃏 Flashcard', qcm:'🎯 QCM', type:'✍️ Écriture'}[mode as string];
   const pct = ((idx+1)/total)*100;
+  
+  // Mémorise la boîte avant l'erreur pour pouvoir l'annuler
+  const [prevBox, setPrevBox] = useState(0);
+
+  const goNext = () => {
+    const ni = idx + 1; 
+    if (ni >= total) setScreen('results'); 
+    else { setIdx(ni); setRevealed(false); setSelOpt(null); setTyped(''); setTypeRes(null); setAnswered(false); }
+  };
+
+  const handleRate = (r:string) => {
+    const w = item.word;
+    const cur = progress[w.id] || {box:0};
+    const box = r==='easy' ? Math.min(cur.box+2,5) : r==='hard' ? Math.min(cur.box+1,5) : 0;
+    const earned = r==='easy'?10:r==='hard'?5:0;
+    const np = updateWord(w.id, box, r!=='wrong');
+    const nx = xp + earned; setXp(nx); setSessXP((s: number) => s+earned);
+    setResults((res: any) => [...res, {wordId:w.id, correct:r!=='wrong', earned}]);
+    persist(np, streak, nx, lastDate);
+    goNext();
+  };
+
+  const handleQCM = (opt:string) => {
+    if (answered) return;
+    const w = item.word; const correct = opt === w.fr;
+    const cur = progress[w.id] || {box:0}; const box = correct ? Math.min(cur.box+1,5) : 0;
+    const earned = correct ? 15 : 0; const np = updateWord(w.id, box, correct);
+    const nx = xp+earned; setXp(nx); setSessXP((s: number) => s+earned);
+    setSelOpt(opt); setAnswered(true); setResults((res: any) => [...res, {wordId:w.id, correct, earned}]); 
+    persist(np, streak, nx, lastDate);
+  };
+
+  const handleType = () => {
+    if (answered || !typed.trim()) return;
+    const w = item.word; const res = checkType(typed, w.fr);
+    const correct = res==='exact'||res==='close';
+    const cur = progress[w.id] || {box:0}; 
+    setPrevBox(cur.box); 
+    const box = res==='exact' ? Math.min(cur.box+1,5) : res==='close' ? cur.box : 0;
+    const earned = res==='exact'?20:res==='close'?10:0;
+    const np = updateWord(w.id, box, correct); 
+    const nx = xp+earned; setXp(nx); setSessXP((s: number) => s+earned);
+    setTypeRes(res); setAnswered(true); setResults((r: any) => [...r, {wordId:w.id, correct, earned}]); 
+    persist(np, streak, nx, lastDate);
+  };
+
+  // La fameuse fonction "J'avais raison !"
+  const handleOverride = () => {
+    const w = item.word;
+    const currentProgress = progress[w.id]; 
+    const box = Math.min(prevBox + 1, 5); // On lui donne la victoire (la boîte + 1)
+    
+    // On calcule l'XP qui manquait (20 si on avait 0, 10 si on avait déjà 10)
+    const xpDiff = typeRes === 'wrong' ? 20 : (typeRes === 'close' ? 10 : 0);
+    
+    // On répare ses statistiques pour ne pas le pénaliser !
+    const wasClose = typeRes === 'close';
+    const newCorrect = wasClose ? currentProgress.correct : currentProgress.correct + 1;
+    const newWrong = wasClose ? currentProgress.wrong : Math.max(0, currentProgress.wrong - 1);
+    
+    const np = { ...progress, [w.id]: { box, lastSeen: new Date().toISOString(), correct: newCorrect, wrong: newWrong }};
+    setProgress(np);
+    
+    const nx = xp + xpDiff; 
+    setXp(nx); 
+    setSessXP((s: number) => s + xpDiff);
+    
+    // On efface l'erreur des résultats de la session en cours
+    setResults((r: any) => {
+        const arr = [...r];
+        arr[arr.length - 1] = { wordId: w.id, correct: true, earned: 20 };
+        return arr;
+    });
+    
+    persist(np, streak, nx, lastDate);
+    goNext();
+  };
 
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'white',padding:'16px',fontFamily:'system-ui,sans-serif',display:'flex',flexDirection:'column'}}>
+      <RandomEasterEgg idx={idx} />
       <div style={{maxWidth:'480px',margin:'0 auto',width:'100%',flex:1,display:'flex',flexDirection:'column'}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
-          <button onClick={onQuit} style={{background:'none',border:'none',color:'#64748b',cursor:'pointer',fontSize:'0.85rem',padding:'4px'}}>✕ Quitter</button>
+          <button onClick={()=>setScreen('home')} style={{background:'none',border:'none',color:'#64748b',cursor:'pointer',fontSize:'0.85rem',padding:'4px'}}>✕ Quitter</button>
           <span style={{background:'rgba(99,102,241,0.15)',border:'1px solid rgba(99,102,241,0.3)',color:'#a5b4fc',borderRadius:'20px',padding:'4px 12px',fontSize:'0.8rem',fontWeight:'500'}}>{modeLabel}</span>
           <span style={{color:'#fbbf24',fontWeight:'700',fontSize:'0.9rem'}}>⚡ {sessXP} XP</span>
         </div>
@@ -1081,9 +1185,9 @@ function Quiz({ item, idx, total, sessXP, revealed, onReveal, onRate, selOpt, an
           <div style={{fontSize:'1.8rem',fontWeight:'800',letterSpacing:'-0.5px'}}>{word.en}</div>
         </div>
         
-        {mode==='flashcard' && <FlashCard word={word} revealed={revealed} onReveal={onReveal} onRate={onRate} />}
-        {mode==='qcm' && <QCM word={word} options={options} selOpt={selOpt} answered={answered} onAnswer={onQCM} onNext={onNext} />}
-        {mode==='type' && <Type word={word} typed={typed} setTyped={setTyped} typeRes={typeRes} answered={answered} onSubmit={onType} onNext={onNext} />}
+        {mode==='flashcard' && <FlashCard word={word} revealed={revealed} onReveal={()=>setRevealed(true)} onRate={handleRate} />}
+        {mode==='qcm' && <QCM word={word} options={options} selOpt={selOpt} answered={answered} onAnswer={handleQCM} onNext={goNext} />}
+        {mode==='type' && <Type word={word} typed={typed} setTyped={setTyped} typeRes={typeRes} answered={answered} onSubmit={handleType} onOverride={handleOverride} onNext={goNext} />}
       </div>
     </div>
   );
@@ -1142,7 +1246,7 @@ function QCM({ word, options, selOpt, answered, onAnswer, onNext }: any) {
   );
 }
 
-function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onNext }: any) {
+function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onOverride, onNext }: any) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!answered && ref.current) ref.current.focus(); }, [answered]);
 
@@ -1155,6 +1259,7 @@ function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onNext }: an
         onKeyDown={e=>{if(e.key==='Enter'){if(!answered)onSubmit();else onNext();}}}
         disabled={answered} placeholder="Traduction en français..."
         style={{width:'100%',background:'#1e293b',border:'1px solid #334155',color:'white',padding:'14px 16px',borderRadius:'12px',fontSize:'0.9rem',outline:'none',marginBottom:'12px',boxSizing:'border-box',opacity:answered?0.7:1}} />
+      
       {r && (
         <div style={{textAlign:'center',marginBottom:'12px',color:r.color}}>
           <div style={{fontWeight:'600',fontSize:'1rem'}}>{r.msg}</div>
@@ -1162,10 +1267,26 @@ function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onNext }: an
           <TipDisplay tip={word.tip} />
         </div>
       )}
-      {!answered
-        ? <button onClick={onSubmit} disabled={!typed.trim()} style={{width:'100%',background:typed.trim()?'linear-gradient(135deg,#4f46e5,#7c3aed)':'#1e293b',border:'none',color:typed.trim()?'white':'#475569',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:typed.trim()?'pointer':'not-allowed',fontSize:'0.9rem',transition:'all 0.15s'}}>Valider</button>
-        : <button onClick={onNext} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:'pointer',fontSize:'0.9rem',marginTop:'15px'}}>Suivant →</button>
-      }
+
+      {!answered ? (
+        <button onClick={onSubmit} disabled={!typed.trim()} style={{width:'100%',background:typed.trim()?'linear-gradient(135deg,#4f46e5,#7c3aed)':'#1e293b',border:'none',color:typed.trim()?'white':'#475569',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:typed.trim()?'pointer':'not-allowed',fontSize:'0.9rem',transition:'all 0.15s'}}>
+          Valider
+        </button>
+      ) : (
+        <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop:'15px'}}>
+          <button onClick={onNext} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:'pointer',fontSize:'0.9rem'}}>
+            Suivant →
+          </button>
+          
+          {/* LE VOILÀ TON BOUTON SAUVEUR DE FAUTES DE FRAPPE ! */}
+          {typeRes !== 'exact' && (
+            <button onClick={onOverride} style={{width:'100%',background:'transparent',border:'1px solid #475569',color:'#94a3b8',fontWeight:'500',padding:'10px',borderRadius:'12px',cursor:'pointer',fontSize:'0.8rem',transition:'background 0.2s'}}
+              onMouseEnter={(e: any)=>e.target.style.background='rgba(71,85,105,0.2)'} onMouseLeave={(e: any)=>e.target.style.background='transparent'}>
+              😅 Faute de frappe, j'avais raison !
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1178,8 +1299,25 @@ function Results({ results, correct, total, sessXP, streak, xp, progress, onHome
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'white',padding:'16px',fontFamily:'system-ui,sans-serif'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
-        <div style={{textAlign:'center',paddingTop:'32px',marginBottom:'24px'}}>
+      <div style={{textAlign:'center',paddingTop:'32px',marginBottom:'24px'}}>
           <div style={{fontSize:'4rem',marginBottom:'8px'}}>{emoji}</div>
+          
+          {/* 👇 LA PHOTO DE FIN DE SESSION EST ICI 👇 */}
+          <img 
+            src="/fin-session.png" 
+            alt="Fin de session" 
+            style={{ 
+              width: '120px', 
+              height: '120px', 
+              objectFit: 'cover', 
+              borderRadius: '50%', 
+              border: '4px solid #818cf8', 
+              marginBottom: '16px',
+              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+            }} 
+          />
+          {/* 👆 FIN DE LA PHOTO 👆 */}
+
           <h2 style={{fontSize:'1.5rem',fontWeight:'800',margin:'0 0 4px'}}>Session terminée !</h2>
           <div style={{fontSize:'3rem',fontWeight:'800',color:'#818cf8'}}>{pct}%</div>
           <div style={{color:'#64748b'}}>{correct}/{total} correctes</div>
