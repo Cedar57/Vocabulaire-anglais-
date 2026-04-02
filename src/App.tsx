@@ -784,33 +784,32 @@ function getQcmOptions(word: any, pool: any[]) {
 }
 
 function buildSession(progress: any, chapters: any[], missedOnly: boolean) {
-  // 1. On crée le pool de base (tous les mots ou par chapitre)
   let pool = chapters.length > 0 ? VOCAB.filter(w => chapters.includes(w.ch)) : VOCAB;
   
-  // 2. CRUCIAL : On retire tous les mots qui ont atteint la Box 5 (Maîtrisés)
-  // Comme ça, "quand c'est appris, c'est bon", ils ne reviennent plus.
+  // On retire les mots maîtrisés
   pool = pool.filter(w => (progress[w.id]?.box || 0) < 5);
-
-  // 3. Si on demande uniquement les mots ratés
   if (missedOnly) pool = pool.filter(w => progress[w.id]?.wrong > 0);
-  
-  // Sécurité si tout est déjà appris
   if (pool.length === 0) return [];
 
-  // 4. On trie par priorité (ceux qui sont dus selon l'algorithme)
+  // 🎲 1er MÉLANGE : On secoue toute la liste pour piocher au hasard
+  pool.sort(() => Math.random() - 0.5);
+
   const due = pool.filter(w => isDue(progress[w.id])).sort((a,b) => {
     const pa = progress[a.id] || {box:0}; const pb = progress[b.id] || {box:0};
+    // On garde quand même la priorité des boîtes
     if (pa.box !== pb.box) return pa.box - pb.box;
     return (pa.lastSeen ? new Date(pa.lastSeen).getTime() : 0) - (pb.lastSeen ? new Date(pb.lastSeen).getTime() : 0);
   });
 
-  // 5. On complète la session de 20 mots
   const selected = due.slice(0, SESSION_SIZE);
   if (selected.length < SESSION_SIZE) {
-    const notDue = pool.filter(w => !isDue(progress[w.id])).sort(() => Math.random()-0.5);
+    const notDue = pool.filter(w => !isDue(progress[w.id]));
     selected.push(...notDue.slice(0, SESSION_SIZE - selected.length));
   }
   
+  // 🎲 2e MÉLANGE : On secoue les 20 mots sélectionnés pour la session
+  selected.sort(() => Math.random() - 0.5);
+
   const qcmPool = pool.length >= 4 ? pool : VOCAB;
   return selected.map(w => ({ 
     word: w, 
