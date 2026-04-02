@@ -786,17 +786,16 @@ function getQcmOptions(word: any, pool: any[]) {
 function buildSession(progress: any, chapters: any[], missedOnly: boolean) {
   let pool = chapters.length > 0 ? VOCAB.filter(w => chapters.includes(w.ch)) : VOCAB;
   
-  // On retire les mots maîtrisés
+  // Exclure les mots maîtrisés (Box 5)
   pool = pool.filter(w => (progress[w.id]?.box || 0) < 5);
   if (missedOnly) pool = pool.filter(w => progress[w.id]?.wrong > 0);
   if (pool.length === 0) return [];
 
-  // 🎲 1er MÉLANGE : On secoue toute la liste pour piocher au hasard
+  // 1er MÉLANGE : On secoue toute la liste pour piocher au hasard
   pool.sort(() => Math.random() - 0.5);
 
   const due = pool.filter(w => isDue(progress[w.id])).sort((a,b) => {
     const pa = progress[a.id] || {box:0}; const pb = progress[b.id] || {box:0};
-    // On garde quand même la priorité des boîtes
     if (pa.box !== pb.box) return pa.box - pb.box;
     return (pa.lastSeen ? new Date(pa.lastSeen).getTime() : 0) - (pb.lastSeen ? new Date(pb.lastSeen).getTime() : 0);
   });
@@ -807,7 +806,7 @@ function buildSession(progress: any, chapters: any[], missedOnly: boolean) {
     selected.push(...notDue.slice(0, SESSION_SIZE - selected.length));
   }
   
-  // 🎲 2e MÉLANGE : On secoue les 20 mots sélectionnés pour la session
+  // 2e MÉLANGE : On secoue les 20 mots sélectionnés pour la session
   selected.sort(() => Math.random() - 0.5);
 
   const qcmPool = pool.length >= 4 ? pool : VOCAB;
@@ -838,7 +837,6 @@ function RandomEasterEgg({ idx }: { idx: number }) {
     const count = parseInt(localStorage.getItem('egg_count') || '0');
     if (count >= 2) return;
 
-    // 1% de chance d'apparition
     if (Math.random() < 0.01) {
       localStorage.setItem('egg_count', (count + 1).toString());
       const top = 15 + Math.random() * 50;  
@@ -931,8 +929,8 @@ export default function App() {
     new: VOCAB.filter(w => !progress[w.id]).length,
     learning: Object.values(progress).filter((p: any) => p.box > 0 && p.box < 5).length,
     mastered: Object.values(progress).filter((p: any) => p.box >= 5).length,
-    due: VOCAB.filter(w => isDue(progress[w.id])).length,
-    missed: VOCAB.filter(w => progress[w.id]?.wrong > 0).length,
+    due: VOCAB.filter(w => isDue(progress[w.id]) && (progress[w.id]?.box || 0) < 5).length,
+    missed: VOCAB.filter(w => progress[w.id]?.wrong > 0 && (progress[w.id]?.box || 0) < 5).length,
   };
 
   function startSession(missed = false) {
@@ -988,6 +986,7 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
   const [timeLeft, setTimeLeft] = useState("");
 
   useEffect(() => {
+    // ⏳ Compte à rebours décalé au Vendredi 9 avril à 13h00
     const examDate = new Date("2026-04-09T13:00:00").getTime();
     const timer = setInterval(() => {
       const now = new Date().getTime();
@@ -1079,7 +1078,9 @@ function Home({ stats, streak, xp, selCh, setSelCh, onStart, onMissed, onReset }
         <button onClick={onStart} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'700',padding:'16px',borderRadius:'16px',fontSize:'1rem',cursor:'pointer',marginBottom:'10px',transition:'opacity 0.15s'}}
           onMouseEnter={(e: any)=>e.target.style.opacity='0.9'} onMouseLeave={(e: any)=>e.target.style.opacity='1'}>
           🚀 Démarrer une session
-          <div style={{fontSize:'0.8rem',fontWeight:'400',opacity:'0.8',marginTop:'2px'}}>{stats.due} mots à réviser</div>
+          <div style={{fontSize:'0.8rem',fontWeight:'400',opacity:'0.8',marginTop:'2px'}}>
+            {stats.due > 0 ? `${stats.due} mots à réviser` : `Tout est à jour ! 🎉`}
+          </div>
         </button>
         {stats.missed > 0 && (
           <button onClick={onMissed} style={{width:'100%',background:'rgba(127,29,29,0.6)',border:'1px solid rgba(239,68,68,0.3)',color:'#fca5a5',fontWeight:'600',padding:'12px',borderRadius:'14px',fontSize:'0.9rem',cursor:'pointer',transition:'background 0.15s',marginBottom:'20px'}}
@@ -1115,7 +1116,8 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
   const handleRate = (r:string) => {
     const w = item.word;
     const cur = progress[w.id] || {box:0};
-    const box = r==='easy' ? Math.min(cur.box+2,5) : r==='hard' ? Math.min(cur.box+1,5) : 0;
+    // ⚡ BOOST progression rapide
+    const box = r==='easy' ? Math.min(cur.box+3,5) : r==='hard' ? Math.min(cur.box+1,5) : 0;
     const earned = r==='easy'?10:r==='hard'?5:0;
     const np = updateWord(w.id, box, r!=='wrong');
     const nx = xp + earned; setXp(nx); setSessXP((s: number) => s+earned);
@@ -1127,7 +1129,9 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
   const handleQCM = (opt:string) => {
     if (answered) return;
     const w = item.word; const correct = opt === w.fr;
-    const cur = progress[w.id] || {box:0}; const box = correct ? Math.min(cur.box+1,5) : 0;
+    const cur = progress[w.id] || {box:0}; 
+    // ⚡ BOOST progression rapide
+    const box = correct ? Math.min(cur.box+2,5) : 0;
     const earned = correct ? 15 : 0; const np = updateWord(w.id, box, correct);
     const nx = xp+earned; setXp(nx); setSessXP((s: number) => s+earned);
     setSelOpt(opt); setAnswered(true); setResults((res: any) => [...res, {wordId:w.id, correct, earned}]); 
@@ -1140,7 +1144,8 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     const correct = res==='exact'||res==='close';
     const cur = progress[w.id] || {box:0}; 
     setPrevBox(cur.box); 
-    const box = res==='exact' ? Math.min(cur.box+1,5) : res==='close' ? cur.box : 0;
+    // ⚡ BOOST progression rapide
+    const box = res==='exact' ? Math.min(cur.box+2,5) : res==='close' ? cur.box : 0;
     const earned = res==='exact'?20:res==='close'?10:0;
     const np = updateWord(w.id, box, correct); 
     const nx = xp+earned; setXp(nx); setSessXP((s: number) => s+earned);
@@ -1148,16 +1153,14 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     persist(np, streak, nx, lastDate);
   };
 
-  // La fameuse fonction "J'avais raison !"
   const handleOverride = () => {
     const w = item.word;
     const currentProgress = progress[w.id]; 
-    const box = Math.min(prevBox + 1, 5); // On lui donne la victoire (la boîte + 1)
+    // ⚡ BOOST : On donne le +2 car il avait raison
+    const box = Math.min(prevBox + 2, 5); 
     
-    // On calcule l'XP qui manquait (20 si on avait 0, 10 si on avait déjà 10)
     const xpDiff = typeRes === 'wrong' ? 20 : (typeRes === 'close' ? 10 : 0);
     
-    // On répare ses statistiques pour ne pas le pénaliser !
     const wasClose = typeRes === 'close';
     const newCorrect = wasClose ? currentProgress.correct : currentProgress.correct + 1;
     const newWrong = wasClose ? currentProgress.wrong : Math.max(0, currentProgress.wrong - 1);
@@ -1169,7 +1172,6 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     setXp(nx); 
     setSessXP((s: number) => s + xpDiff);
     
-    // On efface l'erreur des résultats de la session en cours
     setResults((r: any) => {
         const arr = [...r];
         arr[arr.length - 1] = { wordId: w.id, correct: true, earned: 20 };
@@ -1295,7 +1297,6 @@ function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onOverride, 
             Suivant →
           </button>
           
-          {/* LE VOILÀ TON BOUTON SAUVEUR DE FAUTES DE FRAPPE ! */}
           {typeRes !== 'exact' && (
             <button onClick={onOverride} style={{width:'100%',background:'transparent',border:'1px solid #475569',color:'#94a3b8',fontWeight:'500',padding:'10px',borderRadius:'12px',cursor:'pointer',fontSize:'0.8rem',transition:'background 0.2s'}}
               onMouseEnter={(e: any)=>e.target.style.background='rgba(71,85,105,0.2)'} onMouseLeave={(e: any)=>e.target.style.background='transparent'}>
@@ -1316,10 +1317,10 @@ function Results({ results, correct, total, sessXP, streak, xp, progress, onHome
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'white',padding:'16px',fontFamily:'system-ui,sans-serif'}}>
       <div style={{maxWidth:'480px',margin:'0 auto'}}>
-      <div style={{textAlign:'center',paddingTop:'32px',marginBottom:'24px'}}>
+        <div style={{textAlign:'center',paddingTop:'32px',marginBottom:'24px'}}>
           <div style={{fontSize:'4rem',marginBottom:'8px'}}>{emoji}</div>
           
-          {/* 👇 LA PHOTO DE FIN DE SESSION EST ICI 👇 */}
+          {/* Photo de fin de session */}
           <img 
             src="/fin-session.png" 
             alt="Fin de session" 
@@ -1333,7 +1334,6 @@ function Results({ results, correct, total, sessXP, streak, xp, progress, onHome
               boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
             }} 
           />
-          {/* 👆 FIN DE LA PHOTO 👆 */}
 
           <h2 style={{fontSize:'1.5rem',fontWeight:'800',margin:'0 0 4px'}}>Session terminée !</h2>
           <div style={{fontSize:'3rem',fontWeight:'800',color:'#818cf8'}}>{pct}%</div>
@@ -1364,7 +1364,7 @@ function Results({ results, correct, total, sessXP, streak, xp, progress, onHome
         )}
 
         <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-          <button onClick={onRestart} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'700',padding:'14px',borderRadius:'14px',cursor:'pointer',fontSize:'0.95rem'}}>⏩️ Continuer</button>
+          <button onClick={onRestart} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'700',padding:'14px',borderRadius:'14px',cursor:'pointer',fontSize:'0.95rem'}}>⏩ Continuer</button>
           <button onClick={onHome} style={{width:'100%',background:'#1e293b',border:'1px solid #334155',color:'white',fontWeight:'600',padding:'14px',borderRadius:'14px',cursor:'pointer',fontSize:'0.95rem'}}>🏠 Retour</button>
         </div>
       </div>
