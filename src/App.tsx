@@ -786,12 +786,12 @@ function getQcmOptions(word: any, pool: any[]) {
 function buildSession(progress: any, chapters: any[], missedOnly: boolean) {
   let pool = chapters.length > 0 ? VOCAB.filter(w => chapters.includes(w.ch)) : VOCAB;
   
-  // Exclure les mots maîtrisés (Box 5)
+  // Exclure les mots maîtrisés (Box 5) pour qu'ils ne reviennent plus
   pool = pool.filter(w => (progress[w.id]?.box || 0) < 5);
   if (missedOnly) pool = pool.filter(w => progress[w.id]?.wrong > 0);
   if (pool.length === 0) return [];
 
-  // 1er MÉLANGE : On secoue toute la liste pour piocher au hasard
+  // Mélange aléatoire de tout le pool
   pool.sort(() => Math.random() - 0.5);
 
   const due = pool.filter(w => isDue(progress[w.id])).sort((a,b) => {
@@ -806,7 +806,7 @@ function buildSession(progress: any, chapters: any[], missedOnly: boolean) {
     selected.push(...notDue.slice(0, SESSION_SIZE - selected.length));
   }
   
-  // 2e MÉLANGE : On secoue les 20 mots sélectionnés pour la session
+  // Deuxième mélange aléatoire pour la session
   selected.sort(() => Math.random() - 0.5);
 
   const qcmPool = pool.length >= 4 ? pool : VOCAB;
@@ -829,7 +829,7 @@ function TipDisplay({ tip }: { tip?: string }) {
   );
 }
 
-// --- COMPOSANT EASTER EGG ---
+// --- COMPOSANT EASTER EGG (Apparaît rarement) ---
 function RandomEasterEgg({ idx }: { idx: number }) {
   const [egg, setEgg] = useState<{top: number, left: number, rot: number} | null>(null);
 
@@ -837,7 +837,7 @@ function RandomEasterEgg({ idx }: { idx: number }) {
     const count = parseInt(localStorage.getItem('egg_count') || '0');
     if (count >= 2) return;
 
-    if (Math.random() < 0.01) {
+    if (Math.random() < 0.01) { // 1% de chance
       localStorage.setItem('egg_count', (count + 1).toString());
       const top = 15 + Math.random() * 50;  
       const left = 10 + Math.random() * 50; 
@@ -853,19 +853,10 @@ function RandomEasterEgg({ idx }: { idx: number }) {
 
   return (
     <div style={{
-      position: 'fixed',
-      top: `${egg.top}%`,
-      left: `${egg.left}%`,
-      transform: `rotate(${egg.rot}deg)`,
-      zIndex: 9999,
-      pointerEvents: 'none',
-      background: '#1e293b',
-      padding: '10px',
-      borderRadius: '16px',
-      border: '3px solid #fcd34d',
-      boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-      textAlign: 'center',
-      animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+      position: 'fixed', top: `${egg.top}%`, left: `${egg.left}%`, transform: `rotate(${egg.rot}deg)`,
+      zIndex: 9999, pointerEvents: 'none', background: '#1e293b', padding: '10px',
+      borderRadius: '16px', border: '3px solid #fcd34d', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
+      textAlign: 'center', animation: 'popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
     }}>
       <img src="/juriste-legendaire.png" alt="Surprise" style={{ width: '150px', borderRadius: '8px', objectFit: 'cover' }} />
       <div style={{ fontSize: '0.9rem', color: '#fcd34d', fontWeight: 'bold', marginTop: '8px' }}>
@@ -1104,10 +1095,11 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
   const modeLabel: any = {flashcard:'🃏 Flashcard', qcm:'🎯 QCM', type:'✍️ Écriture'}[mode as string];
   const pct = ((idx+1)/total)*100;
   
-  // Mémorise la boîte avant l'erreur pour pouvoir l'annuler
   const [prevBox, setPrevBox] = useState(0);
+  const [justMastered, setJustMastered] = useState(false); // 🎓 Animation Mastery
 
   const goNext = () => {
+    setJustMastered(false);
     const ni = idx + 1; 
     if (ni >= total) setScreen('results'); 
     else { setIdx(ni); setRevealed(false); setSelOpt(null); setTyped(''); setTypeRes(null); setAnswered(false); }
@@ -1116,26 +1108,34 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
   const handleRate = (r:string) => {
     const w = item.word;
     const cur = progress[w.id] || {box:0};
-    // ⚡ BOOST progression rapide
     const box = r==='easy' ? Math.min(cur.box+3,5) : r==='hard' ? Math.min(cur.box+1,5) : 0;
     const earned = r==='easy'?10:r==='hard'?5:0;
     const np = updateWord(w.id, box, r!=='wrong');
     const nx = xp + earned; setXp(nx); setSessXP((s: number) => s+earned);
     setResults((res: any) => [...res, {wordId:w.id, correct:r!=='wrong', earned}]);
     persist(np, streak, nx, lastDate);
-    goNext();
+    
+    // 🎓 Déclencheur animation Flashcard
+    if (box >= 5 && cur.box < 5) {
+      setJustMastered(true);
+      setTimeout(() => goNext(), 1500); 
+    } else {
+      goNext();
+    }
   };
 
   const handleQCM = (opt:string) => {
     if (answered) return;
     const w = item.word; const correct = opt === w.fr;
     const cur = progress[w.id] || {box:0}; 
-    // ⚡ BOOST progression rapide
     const box = correct ? Math.min(cur.box+2,5) : 0;
     const earned = correct ? 15 : 0; const np = updateWord(w.id, box, correct);
     const nx = xp+earned; setXp(nx); setSessXP((s: number) => s+earned);
     setSelOpt(opt); setAnswered(true); setResults((res: any) => [...res, {wordId:w.id, correct, earned}]); 
     persist(np, streak, nx, lastDate);
+
+    // 🎓 Déclencheur animation QCM
+    if (box >= 5 && cur.box < 5) setJustMastered(true);
   };
 
   const handleType = () => {
@@ -1144,23 +1144,23 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     const correct = res==='exact'||res==='close';
     const cur = progress[w.id] || {box:0}; 
     setPrevBox(cur.box); 
-    // ⚡ BOOST progression rapide
     const box = res==='exact' ? Math.min(cur.box+2,5) : res==='close' ? cur.box : 0;
     const earned = res==='exact'?20:res==='close'?10:0;
     const np = updateWord(w.id, box, correct); 
     const nx = xp+earned; setXp(nx); setSessXP((s: number) => s+earned);
     setTypeRes(res); setAnswered(true); setResults((r: any) => [...r, {wordId:w.id, correct, earned}]); 
     persist(np, streak, nx, lastDate);
+
+    // 🎓 Déclencheur animation Écriture
+    if (box >= 5 && cur.box < 5) setJustMastered(true);
   };
 
   const handleOverride = () => {
     const w = item.word;
     const currentProgress = progress[w.id]; 
-    // ⚡ BOOST : On donne le +2 car il avait raison
     const box = Math.min(prevBox + 2, 5); 
     
     const xpDiff = typeRes === 'wrong' ? 20 : (typeRes === 'close' ? 10 : 0);
-    
     const wasClose = typeRes === 'close';
     const newCorrect = wasClose ? currentProgress.correct : currentProgress.correct + 1;
     const newWrong = wasClose ? currentProgress.wrong : Math.max(0, currentProgress.wrong - 1);
@@ -1168,24 +1168,49 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     const np = { ...progress, [w.id]: { box, lastSeen: new Date().toISOString(), correct: newCorrect, wrong: newWrong }};
     setProgress(np);
     
-    const nx = xp + xpDiff; 
-    setXp(nx); 
-    setSessXP((s: number) => s + xpDiff);
-    
-    setResults((r: any) => {
-        const arr = [...r];
-        arr[arr.length - 1] = { wordId: w.id, correct: true, earned: 20 };
-        return arr;
-    });
-    
+    const nx = xp + xpDiff; setXp(nx); setSessXP((s: number) => s + xpDiff);
+    setResults((r: any) => { const arr = [...r]; arr[arr.length - 1] = { wordId: w.id, correct: true, earned: 20 }; return arr; });
     persist(np, streak, nx, lastDate);
-    goNext();
+
+    // 🎓 Déclencheur animation Override
+    if (box >= 5 && prevBox < 5) {
+      setJustMastered(true);
+      setTimeout(() => goNext(), 1500);
+    } else {
+      goNext();
+    }
   };
 
   return (
     <div style={{minHeight:'100vh',background:'#0f172a',color:'white',padding:'16px',fontFamily:'system-ui,sans-serif',display:'flex',flexDirection:'column'}}>
+      
+      <style>{`
+        @keyframes bounceAnim { 0% { transform: translateY(0) scale(1); } 100% { transform: translateY(-20px) scale(1.1); } }
+        @keyframes fadeInOverlay { from { opacity: 0; backdrop-filter: blur(0px); } to { opacity: 1; backdrop-filter: blur(4px); } }
+      `}</style>
+
       <RandomEasterEgg idx={idx} />
-      <div style={{maxWidth:'480px',margin:'0 auto',width:'100%',flex:1,display:'flex',flexDirection:'column'}}>
+      
+      <div style={{maxWidth:'480px',margin:'0 auto',width:'100%',flex:1,display:'flex',flexDirection:'column', position: 'relative'}}>
+        
+        {/* 🌟 OVERLAY MAÎTRISÉ 🌟 */}
+        {justMastered && (
+          <div style={{
+            position: 'absolute', top: '-16px', left: '-16px', right: '-16px', bottom: '-16px',
+            background: 'rgba(15, 23, 42, 0.85)', zIndex: 50, pointerEvents: 'none',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            borderRadius: '24px', animation: 'fadeInOverlay 0.3s forwards'
+          }}>
+            <div style={{ fontSize: '5rem', animation: 'bounceAnim 0.6s infinite alternate ease-in-out' }}>🎓</div>
+            <div style={{ fontSize: '2rem', fontWeight: '900', color: '#10b981', marginTop: '16px', textShadow: '0px 0px 15px rgba(16,185,129,0.4)' }}>
+              MAÎTRISÉ !
+            </div>
+            <div style={{ color: '#94a3b8', marginTop: '8px', fontSize: '0.95rem', fontWeight: '500' }}>
+              Ce mot est validé pour de bon.
+            </div>
+          </div>
+        )}
+
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'16px'}}>
           <button onClick={()=>setScreen('home')} style={{background:'none',border:'none',color:'#64748b',cursor:'pointer',fontSize:'0.85rem',padding:'4px'}}>✕ Quitter</button>
           <span style={{background:'rgba(99,102,241,0.15)',border:'1px solid rgba(99,102,241,0.3)',color:'#a5b4fc',borderRadius:'20px',padding:'4px 12px',fontSize:'0.8rem',fontWeight:'500'}}>{modeLabel}</span>
@@ -1258,7 +1283,7 @@ function QCM({ word, options, selOpt, answered, onAnswer, onNext }: any) {
       {answered && (
         <>
           <TipDisplay tip={word.tip} />
-          <button onClick={onNext} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:'pointer',fontSize:'0.9rem',marginTop:'15px'}}>Suivant →</button>
+          <button onClick={onNext} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:'pointer',fontSize:'0.9rem',marginTop:'15px', position:'relative', zIndex: 60}}>Suivant →</button>
         </>
       )}
     </div>
@@ -1292,7 +1317,7 @@ function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onOverride, 
           Valider
         </button>
       ) : (
-        <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop:'15px'}}>
+        <div style={{display:'flex', flexDirection:'column', gap:'10px', marginTop:'15px', position:'relative', zIndex: 60}}>
           <button onClick={onNext} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:'pointer',fontSize:'0.9rem'}}>
             Suivant →
           </button>
@@ -1320,19 +1345,10 @@ function Results({ results, correct, total, sessXP, streak, xp, progress, onHome
         <div style={{textAlign:'center',paddingTop:'32px',marginBottom:'24px'}}>
           <div style={{fontSize:'4rem',marginBottom:'8px'}}>{emoji}</div>
           
-          {/* Photo de fin de session */}
           <img 
             src="/fin-session.png" 
             alt="Fin de session" 
-            style={{ 
-              width: '120px', 
-              height: '120px', 
-              objectFit: 'cover', 
-              borderRadius: '50%', 
-              border: '4px solid #818cf8', 
-              marginBottom: '16px',
-              boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
-            }} 
+            style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '50%', border: '4px solid #818cf8', marginBottom: '16px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)' }} 
           />
 
           <h2 style={{fontSize:'1.5rem',fontWeight:'800',margin:'0 0 4px'}}>Session terminée !</h2>
