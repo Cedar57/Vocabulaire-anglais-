@@ -1096,7 +1096,7 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
   const pct = ((idx+1)/total)*100;
   
   const [prevBox, setPrevBox] = useState(0);
-  const [justMastered, setJustMastered] = useState(false); 
+  const [justMastered, setJustMastered] = useState(false); // 🎓 Animation Mastery
 
   const goNext = () => {
     setJustMastered(false);
@@ -1177,25 +1177,26 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     }
   };
 
-  // 🚀 NOUVEAU : Fonction "Instant Master"
+  // 🚀 NOUVEAU : Fonction "Déjà su"
   const handleInstantMaster = () => {
     const w = item.word;
-    const np = updateWord(w.id, 5, true); // On force le niveau 5 (Maîtrisé)
+    const cur = progress[w.id] || {box:0, correct:0, wrong:0};
     
-    // On vérifie si tu avais déjà répondu pour ne pas doubler les XP
-    const alreadyScored = results.length > idx;
-    
+    // On force la boîte 5, on garde l'historique propre
+    const np = { ...progress, [w.id]: { box: 5, lastSeen: new Date().toISOString(), correct: cur.correct + 1, wrong: Math.max(0, cur.wrong - 1) }};
+    setProgress(np);
+
+    // Si on est sur une flashcard, l'XP n'a pas encore été donné
     let nx = xp;
-    if (!alreadyScored) {
-      nx = xp + 15; // 15 XP bonus pour la connaissance directe
-      setXp(nx); 
-      setSessXP((s: number) => s + 15);
-      setResults((res: any) => [...res, {wordId:w.id, correct:true, earned:15}]);
+    if (mode === 'flashcard') {
+      nx += 10;
+      setXp(nx);
+      setSessXP((s: number) => s + 10);
     }
-    
+
     persist(np, streak, nx, lastDate);
-    
-    // On lance l'animation de victoire puis on passe au suivant
+
+    // Animation + Suivant
     setJustMastered(true);
     setTimeout(() => goNext(), 1500);
   };
@@ -1245,31 +1246,20 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
         </div>
         <div style={{textAlign:'center',fontSize:'0.72rem',color:'#475569',marginBottom:'12px'}}>{word.ch}</div>
         
-        {/* CARTE DU MOT AVEC LE NOUVEAU BOUTON */}
-        <div style={{background:'linear-gradient(135deg,#1e293b,#0f1f35)',border:'1px solid #334155',borderRadius:'20px',padding:'36px 24px',textAlign:'center',marginBottom:'16px', position: 'relative'}}>
-          
-          <button 
-            onClick={handleInstantMaster} 
-            title="Marquer comme maîtrisé pour ne plus le voir"
-            style={{position:'absolute', top:'12px', right:'12px', background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)', color:'#34d399', borderRadius:'8px', padding:'6px 10px', fontSize:'0.75rem', fontWeight:'600', cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', gap:'4px'}}
-            onMouseEnter={(e: any)=>e.target.style.background='rgba(16,185,129,0.3)'} 
-            onMouseLeave={(e: any)=>e.target.style.background='rgba(16,185,129,0.15)'}
-          >
-            🎓 Déjà su
-          </button>
-
+        {/* CARTE DU MOT PURE */}
+        <div style={{background:'linear-gradient(135deg,#1e293b,#0f1f35)',border:'1px solid #334155',borderRadius:'20px',padding:'36px 24px',textAlign:'center',marginBottom:'16px'}}>
           <div style={{fontSize:'1.8rem',fontWeight:'800',letterSpacing:'-0.5px'}}>{word.en}</div>
         </div>
         
-        {mode==='flashcard' && <FlashCard word={word} revealed={revealed} onReveal={()=>setRevealed(true)} onRate={handleRate} />}
-        {mode==='qcm' && <QCM word={word} options={options} selOpt={selOpt} answered={answered} onAnswer={handleQCM} onNext={goNext} />}
-        {mode==='type' && <Type word={word} typed={typed} setTyped={setTyped} typeRes={typeRes} answered={answered} onSubmit={handleType} onOverride={handleOverride} onNext={goNext} />}
+        {mode==='flashcard' && <FlashCard word={word} revealed={revealed} onReveal={()=>setRevealed(true)} onRate={handleRate} onMaster={handleInstantMaster} />}
+        {mode==='qcm' && <QCM word={word} options={options} selOpt={selOpt} answered={answered} onAnswer={handleQCM} onNext={goNext} onMaster={handleInstantMaster} />}
+        {mode==='type' && <Type word={word} typed={typed} setTyped={setTyped} typeRes={typeRes} answered={answered} onSubmit={handleType} onOverride={handleOverride} onNext={goNext} onMaster={handleInstantMaster} />}
       </div>
     </div>
   );
 }
 
-function FlashCard({ word, revealed, onReveal, onRate }: any) {
+function FlashCard({ word, revealed, onReveal, onRate, onMaster }: any) {
   return (
     <div>
       <div onClick={!revealed?onReveal:undefined}
@@ -1280,7 +1270,7 @@ function FlashCard({ word, revealed, onReveal, onRate }: any) {
       </div>
       {revealed && (
         <>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px'}}>
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'10px', marginBottom: '10px'}}>
             {[['✗ Raté','wrong','rgba(127,29,29,0.5)','#fca5a5','rgba(153,27,27,0.7)'],
               ['~ Difficile','hard','rgba(120,53,15,0.5)','#fcd34d','rgba(146,64,14,0.7)'],
               ['✓ Facile','easy','rgba(6,78,59,0.5)','#6ee7b7','rgba(4,120,87,0.7)']].map(([label,rating,bg,color,hbg])=>(
@@ -1289,6 +1279,9 @@ function FlashCard({ word, revealed, onReveal, onRate }: any) {
                 onMouseEnter={(e: any)=>e.target.style.background=hbg} onMouseLeave={(e: any)=>e.target.style.background=bg}>{label}</button>
             ))}
           </div>
+          <button onClick={onMaster} style={{width:'100%', background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.3)', color:'#34d399', padding:'12px', borderRadius:'12px', fontSize:'0.85rem', fontWeight:'600', cursor:'pointer', transition:'all 0.15s'}} onMouseEnter={(e:any)=>e.target.style.background='rgba(16,185,129,0.2)'} onMouseLeave={(e:any)=>e.target.style.background='rgba(16,185,129,0.1)'}>
+            🎓 Je le sais déjà par cœur (Valider)
+          </button>
           <TipDisplay tip={word.tip} />
         </>
       )}
@@ -1296,7 +1289,7 @@ function FlashCard({ word, revealed, onReveal, onRate }: any) {
   );
 }
 
-function QCM({ word, options, selOpt, answered, onAnswer, onNext }: any) {
+function QCM({ word, options, selOpt, answered, onAnswer, onNext, onMaster }: any) {
   function style(opt: string) {
     if (!answered) return {background:'#1e293b',border:'1px solid #334155',color:'white',cursor:'pointer'};
     if (opt===word.fr) return {background:'rgba(6,78,59,0.5)',border:'2px solid #10b981',color:'#6ee7b7',cursor:'default'};
@@ -1315,14 +1308,19 @@ function QCM({ word, options, selOpt, answered, onAnswer, onNext }: any) {
       {answered && (
         <>
           <TipDisplay tip={word.tip} />
-          <button onClick={onNext} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:'pointer',fontSize:'0.9rem',marginTop:'15px', position:'relative', zIndex: 60}}>Suivant →</button>
+          <div style={{display:'grid', gridTemplateColumns:'2fr 1fr', gap:'10px', marginTop:'15px', position:'relative', zIndex: 60}}>
+            <button onClick={onNext} style={{width:'100%',background:'linear-gradient(135deg,#4f46e5,#7c3aed)',border:'none',color:'white',fontWeight:'600',padding:'14px',borderRadius:'12px',cursor:'pointer',fontSize:'0.9rem'}}>Suivant →</button>
+            <button onClick={onMaster} style={{width:'100%', background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.3)', color:'#34d399', padding:'14px', borderRadius:'12px', fontSize:'0.85rem', fontWeight:'600', cursor:'pointer', transition:'all 0.15s'}} onMouseEnter={(e:any)=>e.target.style.background='rgba(16,185,129,0.2)'} onMouseLeave={(e:any)=>e.target.style.background='rgba(16,185,129,0.1)'}>
+              🎓 Déjà su
+            </button>
+          </div>
         </>
       )}
     </div>
   );
 }
 
-function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onOverride, onNext }: any) {
+function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onOverride, onNext, onMaster }: any) {
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { if (!answered && ref.current) ref.current.focus(); }, [answered]);
 
@@ -1354,12 +1352,17 @@ function Type({ word, typed, setTyped, typeRes, answered, onSubmit, onOverride, 
             Suivant →
           </button>
           
-          {typeRes !== 'exact' && (
-            <button onClick={onOverride} style={{width:'100%',background:'transparent',border:'1px solid #475569',color:'#94a3b8',fontWeight:'500',padding:'10px',borderRadius:'12px',cursor:'pointer',fontSize:'0.8rem',transition:'background 0.2s'}}
-              onMouseEnter={(e: any)=>e.target.style.background='rgba(71,85,105,0.2)'} onMouseLeave={(e: any)=>e.target.style.background='transparent'}>
-              😅 Faute de frappe, j'avais raison !
+          <div style={{display:'grid', gridTemplateColumns: typeRes !== 'exact' ? '1fr 1fr' : '1fr', gap:'10px'}}>
+            {typeRes !== 'exact' && (
+              <button onClick={onOverride} style={{width:'100%',background:'transparent',border:'1px solid #475569',color:'#94a3b8',fontWeight:'500',padding:'10px',borderRadius:'12px',cursor:'pointer',fontSize:'0.8rem',transition:'background 0.2s'}}
+                onMouseEnter={(e: any)=>e.target.style.background='rgba(71,85,105,0.2)'} onMouseLeave={(e: any)=>e.target.style.background='transparent'}>
+                😅 Faute de frappe
+              </button>
+            )}
+            <button onClick={onMaster} style={{width:'100%', background:'rgba(16,185,129,0.1)', border:'1px solid rgba(16,185,129,0.3)', color:'#34d399', padding:'10px', borderRadius:'12px', fontSize:'0.8rem', fontWeight:'600', cursor:'pointer', transition:'all 0.15s'}} onMouseEnter={(e:any)=>e.target.style.background='rgba(16,185,129,0.2)'} onMouseLeave={(e:any)=>e.target.style.background='rgba(16,185,129,0.1)'}>
+              🎓 Déjà su
             </button>
-          )}
+          </div>
         </div>
       )}
     </div>
