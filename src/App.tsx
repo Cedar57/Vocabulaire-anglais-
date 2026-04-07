@@ -1096,7 +1096,7 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
   const pct = ((idx+1)/total)*100;
   
   const [prevBox, setPrevBox] = useState(0);
-  const [justMastered, setJustMastered] = useState(false); // 🎓 Animation Mastery
+  const [justMastered, setJustMastered] = useState(false); 
 
   const goNext = () => {
     setJustMastered(false);
@@ -1115,7 +1115,6 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     setResults((res: any) => [...res, {wordId:w.id, correct:r!=='wrong', earned}]);
     persist(np, streak, nx, lastDate);
     
-    // 🎓 Déclencheur animation Flashcard
     if (box >= 5 && cur.box < 5) {
       setJustMastered(true);
       setTimeout(() => goNext(), 1500); 
@@ -1134,7 +1133,6 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     setSelOpt(opt); setAnswered(true); setResults((res: any) => [...res, {wordId:w.id, correct, earned}]); 
     persist(np, streak, nx, lastDate);
 
-    // 🎓 Déclencheur animation QCM
     if (box >= 5 && cur.box < 5) setJustMastered(true);
   };
 
@@ -1151,7 +1149,6 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     setTypeRes(res); setAnswered(true); setResults((r: any) => [...r, {wordId:w.id, correct, earned}]); 
     persist(np, streak, nx, lastDate);
 
-    // 🎓 Déclencheur animation Écriture
     if (box >= 5 && cur.box < 5) setJustMastered(true);
   };
 
@@ -1172,13 +1169,35 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
     setResults((r: any) => { const arr = [...r]; arr[arr.length - 1] = { wordId: w.id, correct: true, earned: 20 }; return arr; });
     persist(np, streak, nx, lastDate);
 
-    // 🎓 Déclencheur animation Override
     if (box >= 5 && prevBox < 5) {
       setJustMastered(true);
       setTimeout(() => goNext(), 1500);
     } else {
       goNext();
     }
+  };
+
+  // 🚀 NOUVEAU : Fonction "Instant Master"
+  const handleInstantMaster = () => {
+    const w = item.word;
+    const np = updateWord(w.id, 5, true); // On force le niveau 5 (Maîtrisé)
+    
+    // On vérifie si tu avais déjà répondu pour ne pas doubler les XP
+    const alreadyScored = results.length > idx;
+    
+    let nx = xp;
+    if (!alreadyScored) {
+      nx = xp + 15; // 15 XP bonus pour la connaissance directe
+      setXp(nx); 
+      setSessXP((s: number) => s + 15);
+      setResults((res: any) => [...res, {wordId:w.id, correct:true, earned:15}]);
+    }
+    
+    persist(np, streak, nx, lastDate);
+    
+    // On lance l'animation de victoire puis on passe au suivant
+    setJustMastered(true);
+    setTimeout(() => goNext(), 1500);
   };
 
   return (
@@ -1197,7 +1216,7 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
         {justMastered && (
           <div style={{
             position: 'absolute', top: '-16px', left: '-16px', right: '-16px', bottom: '-16px',
-            background: 'rgba(15, 23, 42, 0.85)', zIndex: 50, pointerEvents: 'none',
+            background: 'rgba(15, 23, 42, 0.85)', zIndex: 100, pointerEvents: 'none',
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
             borderRadius: '24px', animation: 'fadeInOverlay 0.3s forwards'
           }}>
@@ -1225,7 +1244,20 @@ function Quiz({ item, idx, total, sessXP, progress, setProgress, xp, setXp, setS
           </div>
         </div>
         <div style={{textAlign:'center',fontSize:'0.72rem',color:'#475569',marginBottom:'12px'}}>{word.ch}</div>
-        <div style={{background:'linear-gradient(135deg,#1e293b,#0f1f35)',border:'1px solid #334155',borderRadius:'20px',padding:'32px 24px',textAlign:'center',marginBottom:'16px'}}>
+        
+        {/* CARTE DU MOT AVEC LE NOUVEAU BOUTON */}
+        <div style={{background:'linear-gradient(135deg,#1e293b,#0f1f35)',border:'1px solid #334155',borderRadius:'20px',padding:'36px 24px',textAlign:'center',marginBottom:'16px', position: 'relative'}}>
+          
+          <button 
+            onClick={handleInstantMaster} 
+            title="Marquer comme maîtrisé pour ne plus le voir"
+            style={{position:'absolute', top:'12px', right:'12px', background:'rgba(16,185,129,0.15)', border:'1px solid rgba(16,185,129,0.3)', color:'#34d399', borderRadius:'8px', padding:'6px 10px', fontSize:'0.75rem', fontWeight:'600', cursor:'pointer', transition:'all 0.2s', display:'flex', alignItems:'center', gap:'4px'}}
+            onMouseEnter={(e: any)=>e.target.style.background='rgba(16,185,129,0.3)'} 
+            onMouseLeave={(e: any)=>e.target.style.background='rgba(16,185,129,0.15)'}
+          >
+            🎓 Déjà su
+          </button>
+
           <div style={{fontSize:'1.8rem',fontWeight:'800',letterSpacing:'-0.5px'}}>{word.en}</div>
         </div>
         
